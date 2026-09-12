@@ -39,5 +39,7 @@ jobs:
           --region "$GCP_REGION"
           --allow-unauthenticated
           --set-secrets
-          "NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:latest,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:latest,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:latest,OPENAI_API_KEY=neatcoder-openai-api-key:latest"
+          "NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:latest,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:latest,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:latest,OPENAI_API_KEY=neatcoder-openai-api-key:latest,NEATCODER_TASK_SECRET=neatcoder-task-secret:latest"
+          --set-env-vars
+          "NEATCODER_GCP_PROJECT=neatcoder-508419,NEATCODER_TASK_LOCATION=us-east1,NEATCODER_TASK_QUEUE=neatcoder-reviews,NEATCODER_TASK_TARGET_URL=https://neatcoder-735836629222.us-east1.run.app/tasks/review"
           --quiet

@@ -34,12 +34,29 @@ includes a `Procfile` that starts Uvicorn on Cloud Run's required `PORT`.
    a local installation of the Google Cloud CLI. Select a region near you, such as
    `us-east1`.
 
-2. In Secret Manager, create these four secrets. Store the complete PEM file contents,
+2. In Secret Manager, create these five secrets. Store the complete PEM file contents,
    including its BEGIN/END lines, in the private-key secret.
    - `neatcoder-github-app-id`
    - `neatcoder-github-private-key`
    - `neatcoder-webhook-secret`
    - `neatcoder-openai-api-key`
+   - `neatcoder-task-secret` — a separate long random value that protects the internal review
+     task endpoint.
+
+   Create the durable review queue and allow the Cloud Run runtime service account to enqueue
+   jobs. This project uses its default Compute Engine runtime service account:
+
+   ```bash
+   gcloud services enable cloudtasks.googleapis.com --project neatcoder-508419
+
+   gcloud tasks queues create neatcoder-reviews \
+     --location us-east1 \
+     --project neatcoder-508419
+
+   gcloud projects add-iam-policy-binding neatcoder-508419 \
+     --member="serviceAccount:735836629222-compute@developer.gserviceaccount.com" \
+     --role="roles/cloudtasks.enqueuer"
+   ```
 
 3. Deploy the checked-out repository from its root directory:
 
@@ -48,7 +65,8 @@ includes a `Procfile` that starts Uvicorn on Cloud Run's required `PORT`.
      --source . \
      --region us-east1 \
      --allow-unauthenticated \
-     --set-secrets NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:latest,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:latest,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:latest,OPENAI_API_KEY=neatcoder-openai-api-key:latest
+     --set-secrets NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:latest,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:latest,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:latest,OPENAI_API_KEY=neatcoder-openai-api-key:latest,NEATCODER_TASK_SECRET=neatcoder-task-secret:latest \
+     --set-env-vars NEATCODER_GCP_PROJECT=neatcoder-508419,NEATCODER_TASK_LOCATION=us-east1,NEATCODER_TASK_QUEUE=neatcoder-reviews,NEATCODER_TASK_TARGET_URL=https://neatcoder-735836629222.us-east1.run.app/tasks/review
    ```
 
    Replace `us-central1` if you selected another region. Cloud Run builds the container from
@@ -70,6 +88,11 @@ Cloud Run may scale to zero between deliveries; that is expected and does not ch
 Keep the default request-based billing and a minimum instance count of zero while testing.
 GitHub must be able to access the service, so do not require Cloud Run IAM authentication for
 this webhook endpoint. Configure a Google Cloud budget alert before use.
+
+Each verified webhook creates a Cloud Tasks job, and the job calls `/tasks/review` to perform
+the potentially long GitHub and AI work. Cloud Tasks retries a failed job automatically; the
+task endpoint is protected by `NEATCODER_TASK_SECRET` even though the service is public for
+GitHub webhooks.
 
 ### Automatic deployments from GitHub
 

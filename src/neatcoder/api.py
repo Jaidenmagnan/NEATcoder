@@ -7,11 +7,12 @@ import hmac
 import logging
 from typing import Any
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from .config import Settings, load_settings
 from .github_client import GitHubReviewClient
 from .reviewer import review_files
+from .task_queue import ReviewTaskQueue
 
 settings: Settings = load_settings()
 logging.basicConfig(level=settings.log_level)
@@ -33,7 +34,7 @@ def health() -> dict[str, str]:
 
 
 @app.post("/webhooks/github", status_code=202)
-async def github_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
+async def github_webhook(request: Request) -> Response:
     payload_bytes = await request.body()
     if not _verify_signature(
         payload_bytes, request.headers.get("X-Hub-Signature-256"), settings.webhook_secret
@@ -51,9 +52,13 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks) ->
     if payload.get("pull_request", {}).get("draft"):
         return Response(status_code=202)
 
+    try:
+        ReviewTaskQueue(settings).enqueue(payload, delivery_id)
+    except Exception:
+        logger.exception("Failed to queue GitHub delivery %s", delivery_id)
+        raise HTTPException(status_code=503, detail="Review queue unavailable") from None
     if delivery_id:
         processed_deliveries.add(delivery_id)
-    background_tasks.add_task(_process_pull_request, payload, delivery_id)
     return Response(status_code=202)
 
 
@@ -67,12 +72,21 @@ def _handle_pull_request(payload: dict[str, Any]) -> None:
     client.publish(installation_id, full_name, pull_number, context.head_sha, result)
 
 
-def _process_pull_request(payload: dict[str, Any], delivery_id: str | None) -> None:
-    """Review a verified delivery after its webhook response has been sent."""
+@app.post("/tasks/review", status_code=204)
+async def review_task(request: Request) -> Response:
+    authorization = request.headers.get("Authorization")
+    expected_authorization = f"Bearer {settings.task_secret}"
+    valid_authorization = hmac.compare_digest(authorization or "", expected_authorization)
+    if not settings.task_secret or not valid_authorization:
+        raise HTTPException(status_code=401, detail="Invalid task authorization")
+
+    payload: dict[str, Any] = await request.json()
     try:
         _handle_pull_request(payload)
     except Exception:
-        logger.exception("Failed to process GitHub delivery %s", delivery_id)
+        logger.exception("Failed to process queued GitHub review")
+        raise HTTPException(status_code=500, detail="Review processing failed") from None
+    return Response(status_code=204)
 
 
 def main() -> None:

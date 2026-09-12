@@ -24,6 +24,11 @@ class Settings:
     max_diff_bytes: int
     max_ai_output_tokens: int
     max_inline_comments: int
+    gcp_project: str | None
+    task_location: str
+    task_queue: str | None
+    task_target_url: str | None
+    task_secret: str | None
 
     @property
     def github_enabled(self) -> bool:
@@ -36,6 +41,16 @@ class Settings:
             raise RuntimeError(
                 "Live GitHub handling requires NEATCODER_GITHUB_APP_ID, "
                 "NEATCODER_GITHUB_PRIVATE_KEY_PATH, and NEATCODER_WEBHOOK_SECRET."
+            )
+
+    def require_task_queue_settings(self) -> None:
+        if not all(
+            (self.gcp_project, self.task_queue, self.task_target_url, self.task_secret)
+        ):
+            raise RuntimeError(
+                "Live GitHub handling requires NEATCODER_GCP_PROJECT, "
+                "NEATCODER_TASK_QUEUE, NEATCODER_TASK_TARGET_URL, and "
+                "NEATCODER_TASK_SECRET."
             )
 
 
@@ -57,4 +72,9 @@ def load_settings() -> Settings:
         max_diff_bytes=int(os.getenv("NEATCODER_MAX_DIFF_BYTES", "500000")),
         max_ai_output_tokens=int(os.getenv("NEATCODER_MAX_AI_OUTPUT_TOKENS", "1200")),
         max_inline_comments=int(os.getenv("NEATCODER_MAX_INLINE_COMMENTS", "20")),
+        gcp_project=os.getenv("NEATCODER_GCP_PROJECT"),
+        task_location=os.getenv("NEATCODER_TASK_LOCATION", "us-east1"),
+        task_queue=os.getenv("NEATCODER_TASK_QUEUE"),
+        task_target_url=os.getenv("NEATCODER_TASK_TARGET_URL"),
+        task_secret=os.getenv("NEATCODER_TASK_SECRET"),
     )
