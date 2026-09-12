@@ -110,7 +110,21 @@ gcloud projects add-iam-policy-binding neatcoder-508419 \
 
 gcloud projects add-iam-policy-binding neatcoder-508419 \
   --member="serviceAccount:github-deployer@neatcoder-508419.iam.gserviceaccount.com" \
+  --role=roles/run.sourceDeveloper
+
+gcloud projects add-iam-policy-binding neatcoder-508419 \
+  --member="serviceAccount:github-deployer@neatcoder-508419.iam.gserviceaccount.com" \
+  --role=roles/serviceusage.serviceUsageConsumer
+
+gcloud projects add-iam-policy-binding neatcoder-508419 \
+  --member="serviceAccount:github-deployer@neatcoder-508419.iam.gserviceaccount.com" \
   --role=roles/cloudbuild.builds.editor
+
+gcloud artifacts repositories add-iam-policy-binding cloud-run-source-deploy \
+  --project=neatcoder-508419 \
+  --location=us-east1 \
+  --member="serviceAccount:github-deployer@neatcoder-508419.iam.gserviceaccount.com" \
+  --role=roles/artifactregistry.reader
 
 gcloud iam service-accounts add-iam-policy-binding \
   735836629222-compute@developer.gserviceaccount.com \

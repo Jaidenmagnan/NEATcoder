@@ -7,7 +7,7 @@ import hmac
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 
 from .config import Settings, load_settings
 from .github_client import GitHubReviewClient
@@ -33,7 +33,7 @@ def health() -> dict[str, str]:
 
 
 @app.post("/webhooks/github", status_code=202)
-async def github_webhook(request: Request) -> Response:
+async def github_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
     payload_bytes = await request.body()
     if not _verify_signature(
         payload_bytes, request.headers.get("X-Hub-Signature-256"), settings.webhook_secret
@@ -51,13 +51,9 @@ async def github_webhook(request: Request) -> Response:
     if payload.get("pull_request", {}).get("draft"):
         return Response(status_code=202)
 
-    try:
-        _handle_pull_request(payload)
-    except Exception:
-        logger.exception("Failed to process GitHub delivery %s", delivery_id)
-        raise HTTPException(status_code=500, detail="Review processing failed") from None
     if delivery_id:
         processed_deliveries.add(delivery_id)
+    background_tasks.add_task(_process_pull_request, payload, delivery_id)
     return Response(status_code=202)
 
 
@@ -69,6 +65,14 @@ def _handle_pull_request(payload: dict[str, Any]) -> None:
     context = client.get_context(installation_id, full_name, pull_number)
     result = review_files(context.files, context.guidelines, settings)
     client.publish(installation_id, full_name, pull_number, context.head_sha, result)
+
+
+def _process_pull_request(payload: dict[str, Any], delivery_id: str | None) -> None:
+    """Review a verified delivery after its webhook response has been sent."""
+    try:
+        _handle_pull_request(payload)
+    except Exception:
+        logger.exception("Failed to process GitHub delivery %s", delivery_id)
 
 
 def main() -> None:
