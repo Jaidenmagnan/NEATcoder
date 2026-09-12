@@ -31,8 +31,8 @@ class ReviewTaskQueue:
                 http_method=tasks_v2.HttpMethod.POST,
                 url=self._settings.task_target_url,
                 headers={
-                    "Authorization": f"Bearer {self._settings.task_secret}",
                     "Content-Type": "application/json",
+                    "X-NEATCODER-TASK-SECRET": self._settings.task_secret,
                 },
                 body=json.dumps(payload, separators=(",", ":")).encode(),
             ),

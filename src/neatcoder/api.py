@@ -74,10 +74,9 @@ def _handle_pull_request(payload: dict[str, Any]) -> None:
 
 @app.post("/tasks/review", status_code=204)
 async def review_task(request: Request) -> Response:
-    authorization = request.headers.get("Authorization")
-    expected_authorization = f"Bearer {settings.task_secret}"
-    valid_authorization = hmac.compare_digest(authorization or "", expected_authorization)
-    if not settings.task_secret or not valid_authorization:
+    task_secret = request.headers.get("X-NEATCODER-TASK-SECRET")
+    valid_secret = hmac.compare_digest(task_secret or "", settings.task_secret or "")
+    if not settings.task_secret or not valid_secret:
         raise HTTPException(status_code=401, detail="Invalid task authorization")
 
     payload: dict[str, Any] = await request.json()

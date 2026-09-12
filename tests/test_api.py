@@ -78,7 +78,10 @@ def test_processes_authorized_review_task(monkeypatch: pytest.MonkeyPatch) -> No
             _request(
                 "/tasks/review",
                 b'{"number":24}',
-                {"Content-Type": "application/json", "Authorization": "Bearer task-secret"},
+                {
+                    "Content-Type": "application/json",
+                    "X-NEATCODER-TASK-SECRET": "task-secret",
+                },
             )
         )
     )
