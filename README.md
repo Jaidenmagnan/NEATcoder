@@ -23,38 +23,7 @@ Unit tests do not need GitHub credentials:
 
 Create a GitHub App with these repository permissions: **Contents: read**, **Pull requests:
 read and write**, and **Checks: write**. Subscribe to the **Pull request** webhook event.
-For development, expose `POST /webhooks/github` through a secure tunnel and set its URL as
-the app webhook URL. For a persistent endpoint, see [Deploy on Google Cloud](#deploy-on-google-cloud).
-
-### Test webhooks locally
-
-1. Start the application in one terminal:
-
-   ```bash
-   .venv/bin/uvicorn neatcoder.api:app --reload
-   ```
-
-2. In a second terminal, expose the local server:
-
-   ```bash
-   cloudflared tunnel --url http://localhost:8000
-   ```
-
-   The command prints a public URL similar to
-   `https://example-name.trycloudflare.com`.
-
-3. In the GitHub App settings, set **Webhook URL** to that public URL followed by the
-   webhook path:
-
-   ```text
-   https://example-name.trycloudflare.com/webhooks/github
-   ```
-
-4. Set **Webhook secret** in GitHub to the same value as `NEATCODER_WEBHOOK_SECRET` in
-   `.env`, save the app settings, and trigger a pull-request event in a sandbox repository.
-
-Keep both terminal processes running while testing. The Quick Tunnel URL changes every time
-you start `cloudflared`, so update the GitHub App webhook URL when it changes.
+For deployment and live webhook testing, follow [Deploy on Google Cloud](#deploy-on-google-cloud).
 
 ## Deploy on Google Cloud
 
@@ -63,23 +32,23 @@ includes a `Procfile` that starts Uvicorn on Cloud Run's required `PORT`.
 
 1. Create or select a Google Cloud project with billing enabled, then open Cloud Shell or use
    a local installation of the Google Cloud CLI. Select a region near you, such as
-   `us-central1`.
+   `us-east1`.
 
 2. In Secret Manager, create these three secrets. Store the complete PEM file contents,
    including its BEGIN/END lines, in the private-key secret.
-
    - `neatcoder-github-app-id`
    - `neatcoder-github-private-key`
    - `neatcoder-webhook-secret`
+   - `neatcoder-openai-api-key`
 
 3. Deploy the checked-out repository from its root directory:
 
    ```bash
    gcloud run deploy neatcoder \
      --source . \
-     --region us-central1 \
+     --region us-east1 \
      --allow-unauthenticated \
-     --set-secrets NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:1,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:1,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:1
+     --set-secrets NEATCODER_GITHUB_APP_ID=neatcoder-github-app-id:1,NEATCODER_GITHUB_PRIVATE_KEY=neatcoder-github-private-key:1,NEATCODER_WEBHOOK_SECRET=neatcoder-webhook-secret:1,OPENAI_API_KEY=neatcoder-openai-api-key:1
    ```
 
    Replace `us-central1` if you selected another region. Cloud Run builds the container from
@@ -101,6 +70,15 @@ Cloud Run may scale to zero between deliveries; that is expected and does not ch
 Keep the default request-based billing and a minimum instance count of zero while testing.
 GitHub must be able to access the service, so do not require Cloud Run IAM authentication for
 this webhook endpoint. Configure a Google Cloud budget alert before use.
+
+### AI review and cost controls
+
+When `OPENAI_API_KEY` is configured, NEATcoder sends changed patches and repository guidance
+to OpenAI for an additional AI review. The default model is `gpt-5.4-nano`. Each review is
+capped by `NEATCODER_MAX_DIFF_BYTES` (500,000 bytes by default) and
+`NEATCODER_MAX_AI_OUTPUT_TOKENS` (1,200 by default); lower either setting to reduce spend.
+OpenAI API usage is not included with a ChatGPT subscription, so set an OpenAI usage limit and
+budget alert before enabling the key.
 
 When you are ready to receive real events, populate `.env` with:
 

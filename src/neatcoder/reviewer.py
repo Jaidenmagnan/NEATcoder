@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
+from .ai_reviewer import review_with_openai
 from .analyzers import analyze_added_lines, assess_test_coverage
 from .guidelines import Guidelines
 from .models import Category, Finding, ReviewResult, Strength
 
 HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+if TYPE_CHECKING:
+    from .config import Settings
 
 
 class ChangedFile(Protocol):
@@ -39,7 +43,10 @@ def added_lines_from_patch(patch: str | None) -> Iterable[tuple[int, str]]:
             new_line += 1
 
 
-def review_files(files: Iterable[ChangedFile], guidelines: Guidelines) -> ReviewResult:
+def review_files(
+    files: Iterable[ChangedFile], guidelines: Guidelines, settings: Settings | None = None
+) -> ReviewResult:
+    files = list(files)
     result = ReviewResult()
     changed_paths: list[str] = []
     seen: set[tuple[str | None, int | None, str]] = set()
@@ -59,6 +66,19 @@ def review_files(files: Iterable[ChangedFile], guidelines: Guidelines) -> Review
             result.findings.append(item)
         else:
             result.strengths.append(item)
+    if settings is not None and settings.openai_api_key:
+        for finding in review_with_openai(
+            files,
+            guidelines,
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            max_input_bytes=settings.max_diff_bytes,
+            max_output_tokens=settings.max_ai_output_tokens,
+        ):
+            key = (finding.path, finding.line, finding.title)
+            if key not in seen:
+                result.findings.append(finding)
+                seen.add(key)
     if not result.findings:
         result.strengths.append(
             Strength(

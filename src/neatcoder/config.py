@@ -18,8 +18,11 @@ class Settings:
     private_key_path: Path | None
     private_key: str | None
     webhook_secret: str | None
+    openai_api_key: str | None
+    openai_model: str
     max_files: int
     max_diff_bytes: int
+    max_ai_output_tokens: int
     max_inline_comments: int
 
     @property
@@ -48,7 +51,10 @@ def load_settings() -> Settings:
         private_key_path=Path(key_path_raw) if key_path_raw else None,
         private_key=os.getenv("NEATCODER_GITHUB_PRIVATE_KEY"),
         webhook_secret=os.getenv("NEATCODER_WEBHOOK_SECRET"),
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        openai_model=os.getenv("NEATCODER_OPENAI_MODEL", "gpt-5.4-nano"),
         max_files=int(os.getenv("NEATCODER_MAX_FILES", "100")),
         max_diff_bytes=int(os.getenv("NEATCODER_MAX_DIFF_BYTES", "500000")),
+        max_ai_output_tokens=int(os.getenv("NEATCODER_MAX_AI_OUTPUT_TOKENS", "1200")),
         max_inline_comments=int(os.getenv("NEATCODER_MAX_INLINE_COMMENTS", "20")),
     )

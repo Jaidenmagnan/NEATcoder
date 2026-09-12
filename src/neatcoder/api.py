@@ -67,7 +67,7 @@ def _handle_pull_request(payload: dict[str, Any]) -> None:
     pull_number = int(payload["number"])
     client = GitHubReviewClient(settings)
     context = client.get_context(installation_id, full_name, pull_number)
-    result = review_files(context.files, context.guidelines)
+    result = review_files(context.files, context.guidelines, settings)
     client.publish(installation_id, full_name, pull_number, context.head_sha, result)
 
 
