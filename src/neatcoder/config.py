@@ -67,7 +67,7 @@ def load_settings() -> Settings:
         private_key=os.getenv("NEATCODER_GITHUB_PRIVATE_KEY"),
         webhook_secret=os.getenv("NEATCODER_WEBHOOK_SECRET"),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        openai_model=os.getenv("NEATCODER_OPENAI_MODEL", "gpt-5.4-nano"),
+        openai_model=os.getenv("NEATCODER_OPENAI_MODEL", "gpt-5.6-sol"),
         max_files=int(os.getenv("NEATCODER_MAX_FILES", "100")),
         max_diff_bytes=int(os.getenv("NEATCODER_MAX_DIFF_BYTES", "500000")),
         max_ai_output_tokens=int(os.getenv("NEATCODER_MAX_AI_OUTPUT_TOKENS", "1200")),
